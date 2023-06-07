@@ -92,7 +92,23 @@ export interface DebuggerAttachEventState {
 const debuggerVersion = '1.3';
 
 /** Chrome tab to attach the debugger to. */
-const {tabId} = chrome.devtools.inspectedWindow;
+const tabId = chrome.devtools.inspectedWindow;
+
+chrome.debugger.onEvent.addListener(async (source, method, params) => {
+  // When something we're already connected to connects to something else,
+  // copy it and connect from the extension too
+  console.log('Listener event');
+  console.log(method);
+  if (method === 'Target.attachedToTarget') {
+    console.log('Right targetId');
+    console.log(params.targetInfo.targetId);
+  }
+});
+
+const targetId = tabId;
+
+console.log('This is tabId');
+console.log(targetId);
 
 export enum ChromeDebuggerAPIEventName {
   detached = 'ChromeDebuggerAPI.detached',
@@ -141,6 +157,9 @@ export class DebuggerAttachEventController {
 
   debuggerEvent$: Observable<ChromeDebuggerAPIEvent>;
 
+  targetEventInterest$: CounterSubject;
+  targetEventState$: Observable<BinaryTransition>;
+
   constructor() {
     // Create an interface of subjects to track changes in state with the
     // `chrome.debugger` api.
@@ -153,17 +172,17 @@ export class DebuggerAttachEventController {
       // attachState must be IS_ACTIVE for `chrome.debugger.sendCommand` to be used.
       attachState: new BinaryTransitionSubject({
         initialState: BinaryTransition.IS_INACTIVE,
-        activateAction: () => attach({tabId}, debuggerVersion),
-        deactivateAction: () => detach({tabId}),
+        activateAction: () => attach(targetId, debuggerVersion),
+        deactivateAction: () => detach(targetId),
       }),
       // How many entities want to listen to page events through `onEvent`.
       pageEventInterest: new CounterSubject(0),
       // must be IS_ACTIVE for `onEvent` to receive events.
       pageEventState: new BinaryTransitionSubject({
         initialState: BinaryTransition.IS_INACTIVE,
-        activateAction: () => sendCommand({tabId}, PageDebuggerMethod.enable),
+        activateAction: () => sendCommand(targetId, PageDebuggerMethod.enable),
         deactivateAction: () =>
-          sendCommand({tabId}, PageDebuggerMethod.disable),
+          sendCommand(targetId, PageDebuggerMethod.disable),
       }),
       // How many entities want to listen to web audio events through `onEvent`.
       webAudioEventInterest: new CounterSubject(0),
@@ -171,9 +190,24 @@ export class DebuggerAttachEventController {
       webAudioEventState: new BinaryTransitionSubject({
         initialState: BinaryTransition.IS_INACTIVE,
         activateAction: () =>
-          sendCommand({tabId}, WebAudioDebuggerMethod.enable),
+          sendCommand(targetId, WebAudioDebuggerMethod.enable),
         deactivateAction: () =>
-          sendCommand({tabId}, WebAudioDebuggerMethod.disable),
+          sendCommand(targetId, WebAudioDebuggerMethod.disable),
+      }),
+      // How many entities want to listen to target events through `onEvent`.
+      targetEventInterest: new CounterSubject(0),
+      targetEventState: new BinaryTransitionSubject({
+        initialState: BinaryTransition.IS_INACTIVE,
+        activateAction: () =>
+          sendCommand(targetId, 'Target.setAutoAttach', {
+            autoAttach: true,
+            waitForDebuggerOnStart: false,
+          }),
+        deactivateAction: () =>
+          sendCommand(targetId, 'Target.setAutoAttach', {
+            autoAttach: false,
+            waitForDebuggerOnStart: false,
+          }),
       }),
     };
     this.permission$ = debuggerSubject.permission;
@@ -183,6 +217,8 @@ export class DebuggerAttachEventController {
     this.pageEventState$ = debuggerSubject.pageEventState;
     this.webAudioEventInterest$ = debuggerSubject.webAudioEventInterest;
     this.webAudioEventState$ = debuggerSubject.webAudioEventState;
+    this.targetEventInterest$ = debuggerSubject.targetEventInterest;
+    this.targetEventState$ = debuggerSubject.targetEventState;
 
     // Observable of changes to state derived from debuggerSubject.
     const debuggerState$ = (this.combinedState$ =
@@ -198,7 +234,9 @@ export class DebuggerAttachEventController {
             previous.pageEventInterest === current.pageEventInterest &&
             previous.pageEventState === current.pageEventState &&
             previous.webAudioEventInterest === current.webAudioEventInterest &&
-            previous.webAudioEventState === current.webAudioEventState,
+            previous.webAudioEventState === current.webAudioEventState &&
+            previous.targetEventInterest === current.targetEventInterest &&
+            previous.targetEventState === previous.targetEventState,
         ),
         // Make one subscription debuggerSubject once for many subscribers.
         share(),
@@ -273,7 +311,7 @@ export class DebuggerAttachEventController {
     return this.attachState$.pipe(
       filter((state) => state === BinaryTransition.IS_ACTIVE),
       take(1),
-      exhaustMap(() => sendCommand({tabId}, method)),
+      exhaustMap(() => sendCommand(targetId, method)),
       finalize(() => this.attachInterest$.decrement()),
     );
   }
