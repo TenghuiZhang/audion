@@ -24,6 +24,7 @@ import {
 import {chrome} from '../chrome';
 import {PageDebuggerMethod} from '../chrome/DebuggerPageDomain';
 import {WebAudioDebuggerMethod} from '../chrome/DebuggerWebAudioDomain';
+import {TargetDebuggerMethod} from '../chrome/DebuggerTargetDomain';
 
 /**
  * Permission value in regards to calling `chrome.debugger.attach`.
@@ -86,13 +87,12 @@ export interface DebuggerAttachEventState {
   pageEventState: BinaryTransition;
   webAudioEventInterest: number;
   webAudioEventState: BinaryTransition;
+  targetEventInterest: number;
+  targetEventState: BinaryTransition;
 }
 
 /** Chrome Devtools Protocol version to attach to. */
-const debuggerVersion = '1.3';
-
-/** Chrome tab to attach the debugger to. */
-const {tabId} = chrome.devtools.inspectedWindow;
+export const debuggerVersion = '1.3';
 
 export enum ChromeDebuggerAPIEventName {
   detached = 'ChromeDebuggerAPI.detached',
@@ -141,7 +141,12 @@ export class DebuggerAttachEventController {
 
   debuggerEvent$: Observable<ChromeDebuggerAPIEvent>;
 
-  constructor() {
+  targetEventInterest$: CounterSubject;
+  targetEventState$: Observable<BinaryTransition>;
+
+  id$: Chrome.DebuggerDebuggee;
+
+  constructor(id: Chrome.DebuggerDebuggee) {
     // Create an interface of subjects to track changes in state with the
     // `chrome.debugger` api.
     const debuggerSubject = {
@@ -153,27 +158,39 @@ export class DebuggerAttachEventController {
       // attachState must be IS_ACTIVE for `chrome.debugger.sendCommand` to be used.
       attachState: new BinaryTransitionSubject({
         initialState: BinaryTransition.IS_INACTIVE,
-        activateAction: () => attach({tabId}, debuggerVersion),
-        deactivateAction: () => detach({tabId}),
+        activateAction: () => attach(id, debuggerVersion),
+        deactivateAction: () => detach(id),
       }),
       // How many entities want to listen to page events through `onEvent`.
       pageEventInterest: new CounterSubject(0),
       // must be IS_ACTIVE for `onEvent` to receive events.
       pageEventState: new BinaryTransitionSubject({
         initialState: BinaryTransition.IS_INACTIVE,
-        activateAction: () => sendCommand({tabId}, PageDebuggerMethod.enable),
-        deactivateAction: () =>
-          sendCommand({tabId}, PageDebuggerMethod.disable),
+        activateAction: () => sendCommand(id, PageDebuggerMethod.enable),
+        deactivateAction: () => sendCommand(id, PageDebuggerMethod.disable),
       }),
       // How many entities want to listen to web audio events through `onEvent`.
       webAudioEventInterest: new CounterSubject(0),
       // webAudioEventState must be IS_ACTIVE for `onEvent` to receive events.
       webAudioEventState: new BinaryTransitionSubject({
         initialState: BinaryTransition.IS_INACTIVE,
+        activateAction: () => sendCommand(id, WebAudioDebuggerMethod.enable),
+        deactivateAction: () => sendCommand(id, WebAudioDebuggerMethod.disable),
+      }),
+      // How many entities want to listen to target events through `onEvent`.
+      targetEventInterest: new CounterSubject(0),
+      targetEventState: new BinaryTransitionSubject({
+        initialState: BinaryTransition.IS_INACTIVE,
         activateAction: () =>
-          sendCommand({tabId}, WebAudioDebuggerMethod.enable),
+          sendCommand(id, TargetDebuggerMethod.setAutoAttach, {
+            autoAttach: true,
+            waitForDebuggerOnStart: false,
+          }),
         deactivateAction: () =>
-          sendCommand({tabId}, WebAudioDebuggerMethod.disable),
+          sendCommand(id, TargetDebuggerMethod.setAutoAttach, {
+            autoAttach: false,
+            waitForDebuggerOnStart: false,
+          }),
       }),
     };
     this.permission$ = debuggerSubject.permission;
@@ -183,6 +200,9 @@ export class DebuggerAttachEventController {
     this.pageEventState$ = debuggerSubject.pageEventState;
     this.webAudioEventInterest$ = debuggerSubject.webAudioEventInterest;
     this.webAudioEventState$ = debuggerSubject.webAudioEventState;
+    this.targetEventInterest$ = debuggerSubject.targetEventInterest;
+    this.targetEventState$ = debuggerSubject.targetEventState;
+    this.id$ = id;
 
     // Observable of changes to state derived from debuggerSubject.
     const debuggerState$ = (this.combinedState$ =
@@ -198,7 +218,9 @@ export class DebuggerAttachEventController {
             previous.pageEventInterest === current.pageEventInterest &&
             previous.pageEventState === current.pageEventState &&
             previous.webAudioEventInterest === current.webAudioEventInterest &&
-            previous.webAudioEventState === current.webAudioEventState,
+            previous.webAudioEventState === current.webAudioEventState &&
+            previous.targetEventInterest === current.targetEventInterest &&
+            previous.targetEventState === current.targetEventState,
         ),
         // Make one subscription debuggerSubject once for many subscribers.
         share(),
@@ -261,6 +283,12 @@ export class DebuggerAttachEventController {
         ({webAudioEventInterest}) => webAudioEventInterest > 0,
       ),
     );
+    debuggerState$.subscribe(
+      activateEventWhileAttached(
+        debuggerSubject.targetEventState,
+        ({targetEventInterest}) => targetEventInterest > 0,
+      ),
+    );
   }
 
   /**
@@ -273,7 +301,7 @@ export class DebuggerAttachEventController {
     return this.attachState$.pipe(
       filter((state) => state === BinaryTransition.IS_ACTIVE),
       take(1),
-      exhaustMap(() => sendCommand({tabId}, method)),
+      exhaustMap(() => sendCommand(this.id$, method)),
       finalize(() => this.attachInterest$.decrement()),
     );
   }
@@ -442,7 +470,7 @@ interface BinaryTransitionDescription {
  * some action. After the action completes successfully the subject enters the
  * desired state.
  */
-class BinaryTransitionSubject extends BehaviorSubject<BinaryTransition> {
+export class BinaryTransitionSubject extends BehaviorSubject<BinaryTransition> {
   private readonly activateTransition: BinaryTransitionDescription;
   private readonly deactivateTransition: BinaryTransitionDescription;
 

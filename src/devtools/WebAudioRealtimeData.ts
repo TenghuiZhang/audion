@@ -10,6 +10,8 @@ import {WebAudioDebuggerMethod} from '../chrome/DebuggerWebAudioDomain';
 import {Audion} from './Types';
 import {bindChromeCallback} from '../utils/rxChrome';
 
+import {globalData} from '../utils/global';
+
 /**
  * Error messages returned by WebAudio.getRealtimeData devtool protocol method.
  */
@@ -24,10 +26,10 @@ interface RealtimeDataReason<Message extends RealtimeDataErrorMessage> {
   message: Message;
 }
 
-const {tabId} = chrome.devtools.inspectedWindow;
+const id = chrome.devtools.inspectedWindow.tabId;
 
 const sendCommand = bindChromeCallback<
-  [{tabId: string}, WebAudioDebuggerMethod.getRealtimeData, any?],
+  [{}, WebAudioDebuggerMethod.getRealtimeData, any?],
   [{realtimeData: Protocol.WebAudio.ContextRealtimeData}]
 >(chrome.debugger.sendCommand, chrome.debugger);
 
@@ -45,9 +47,33 @@ export class WebAudioRealtimeData {
   private readonly interval$ = interval(this.intervalMS);
 
   pollContext(contextId: string) {
+    console.log('this is global data');
+    console.log(globalData);
+    console.log('this is contextId');
+    console.log(contextId);
+    var currentDebugeeId = {};
+    currentDebugeeId = {tabId: id};
+    if (globalData.audioIframeIdMap.has(contextId)) {
+      var iframeId = globalData.audioIframeIdMap.get(contextId);
+      if (globalData.iframeTabIdMap.has(iframeId)) {
+        let targetTabId = {tabId: globalData.iframeTabIdMap.get(iframeId)};
+        console.log('they are tab from global');
+        console.log(targetTabId);
+        console.log('Tab from inspect');
+        console.log(currentDebugeeId);
+        if (JSON.stringify(targetTabId) === JSON.stringify(currentDebugeeId)) {
+          console.log('they are equal');
+          // currentDebugeeId = { targetId: iframeId };
+          currentDebugeeId = targetTabId;
+        }
+      }
+    }
+    console.log('This is current debugee id');
+    console.log(currentDebugeeId);
+
     return this.interval$.pipe(
       concatMap(() =>
-        sendCommand({tabId}, WebAudioDebuggerMethod.getRealtimeData, {
+        sendCommand(currentDebugeeId, WebAudioDebuggerMethod.getRealtimeData, {
           contextId,
         }).pipe(
           timeout({first: this.timeoutMS}),

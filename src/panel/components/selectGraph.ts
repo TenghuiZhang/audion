@@ -45,7 +45,9 @@ function graphIdTitle(graphId: string) {
  * @returns rendered graph title
  */
 function graphTitle(graph: Audion.GraphContext) {
-  return `${graph.context.contextType} (${graph.id.slice(-6)})`;
+  return graph.isIframe
+    ? `${graph.context.contextType} (${graph.id.slice(-6)}) Iframe`
+    : `${graph.context.contextType} (${graph.id.slice(-6)})`;
 }
 
 /**

@@ -7,10 +7,11 @@
  * [1]: https://developer.chrome.com/docs/extensions/reference/runtime/
  *
  * @typedef Chrome.Runtime
- * @property {function(): Chrome.RuntimePort} connect
+ * @property {function((object|undefined)=): Chrome.RuntimePort} connect
  * @property {function(string): string} getURL
  * @property {Chrome.RuntimeError} lastError
  * @property {Chrome.Event<Chrome.RuntimeOnConnectCallback>} onConnect
+ * @property {function(*, callback): void} sendMessage
  */
 
 /**

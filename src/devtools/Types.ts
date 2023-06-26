@@ -11,6 +11,11 @@ import {
   WebAudioDebuggerEventParams,
 } from '../chrome/DebuggerWebAudioDomain';
 
+import {
+  TargetDebuggerEvent,
+  TargetDebuggerEventParams,
+} from '../chrome/DebuggerTargetDomain';
+
 import {Utils} from '../utils/Types';
 
 /** @namespace Audion */
@@ -59,6 +64,7 @@ export namespace Audion {
     nodes: {[key: string]: GraphNode};
     params: {[key: string]: Protocol.WebAudio.AudioParam};
     graph: any;
+    isIframe?: any;
   }
 
   export interface GraphContextMessage {
@@ -104,6 +110,12 @@ export namespace Audion {
     method: N;
     params: WebAudioDebuggerEventParams<N>[0];
   };
+
+  export type TargetEvent<N extends TargetDebuggerEvent = TargetDebuggerEvent> =
+    {
+      method: N;
+      params: TargetDebuggerEventParams<N>[0];
+    };
 }
 
 /**

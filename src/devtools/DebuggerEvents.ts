@@ -4,7 +4,7 @@ import {fromChromeEvent} from '../utils/rxChrome';
 import {DebuggerAttachEventController} from './DebuggerAttachEventController';
 import {Audion} from './Types';
 
-type DebuggerDomain = 'page' | 'webAudio';
+type DebuggerDomain = 'page' | 'webAudio' | 'target';
 
 interface DebuggerEventsOptions<D extends DebuggerDomain> {
   domain: D;
@@ -14,6 +14,8 @@ type DebuggerDomainEvent<D extends DebuggerDomain> = D extends 'page'
   ? Audion.PageEvent
   : D extends 'webAudio'
   ? Audion.WebAudioEvent
+  : D extends 'target'
+  ? Audion.TargetEvent
   : never;
 
 export class DebuggerEventsObservable<
