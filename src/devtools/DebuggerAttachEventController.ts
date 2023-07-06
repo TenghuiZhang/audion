@@ -89,10 +89,7 @@ export interface DebuggerAttachEventState {
 }
 
 /** Chrome Devtools Protocol version to attach to. */
-const debuggerVersion = '1.3';
-
-/** Chrome tab to attach the debugger to. */
-const {tabId} = chrome.devtools.inspectedWindow;
+export const debuggerVersion = '1.3';
 
 export enum ChromeDebuggerAPIEventName {
   detached = 'ChromeDebuggerAPI.detached',
@@ -141,7 +138,9 @@ export class DebuggerAttachEventController {
 
   debuggerEvent$: Observable<ChromeDebuggerAPIEvent>;
 
-  constructor() {
+  id$: Chrome.DebuggerDebuggee;
+
+  constructor(id: Chrome.DebuggerDebuggee) {
     // Create an interface of subjects to track changes in state with the
     // `chrome.debugger` api.
     const debuggerSubject = {
@@ -153,27 +152,24 @@ export class DebuggerAttachEventController {
       // attachState must be IS_ACTIVE for `chrome.debugger.sendCommand` to be used.
       attachState: new BinaryTransitionSubject({
         initialState: BinaryTransition.IS_INACTIVE,
-        activateAction: () => attach({tabId}, debuggerVersion),
-        deactivateAction: () => detach({tabId}),
+        activateAction: () => attach(id, debuggerVersion),
+        deactivateAction: () => detach(id),
       }),
       // How many entities want to listen to page events through `onEvent`.
       pageEventInterest: new CounterSubject(0),
       // must be IS_ACTIVE for `onEvent` to receive events.
       pageEventState: new BinaryTransitionSubject({
         initialState: BinaryTransition.IS_INACTIVE,
-        activateAction: () => sendCommand({tabId}, PageDebuggerMethod.enable),
-        deactivateAction: () =>
-          sendCommand({tabId}, PageDebuggerMethod.disable),
+        activateAction: () => sendCommand(id, PageDebuggerMethod.enable),
+        deactivateAction: () => sendCommand(id, PageDebuggerMethod.disable),
       }),
       // How many entities want to listen to web audio events through `onEvent`.
       webAudioEventInterest: new CounterSubject(0),
       // webAudioEventState must be IS_ACTIVE for `onEvent` to receive events.
       webAudioEventState: new BinaryTransitionSubject({
         initialState: BinaryTransition.IS_INACTIVE,
-        activateAction: () =>
-          sendCommand({tabId}, WebAudioDebuggerMethod.enable),
-        deactivateAction: () =>
-          sendCommand({tabId}, WebAudioDebuggerMethod.disable),
+        activateAction: () => sendCommand(id, WebAudioDebuggerMethod.enable),
+        deactivateAction: () => sendCommand(id, WebAudioDebuggerMethod.disable),
       }),
     };
     this.permission$ = debuggerSubject.permission;
@@ -183,6 +179,7 @@ export class DebuggerAttachEventController {
     this.pageEventState$ = debuggerSubject.pageEventState;
     this.webAudioEventInterest$ = debuggerSubject.webAudioEventInterest;
     this.webAudioEventState$ = debuggerSubject.webAudioEventState;
+    this.id$ = id;
 
     // Observable of changes to state derived from debuggerSubject.
     const debuggerState$ = (this.combinedState$ =
@@ -273,7 +270,7 @@ export class DebuggerAttachEventController {
     return this.attachState$.pipe(
       filter((state) => state === BinaryTransition.IS_ACTIVE),
       take(1),
-      exhaustMap(() => sendCommand({tabId}, method)),
+      exhaustMap(() => sendCommand(this.id$, method)),
       finalize(() => this.attachInterest$.decrement()),
     );
   }

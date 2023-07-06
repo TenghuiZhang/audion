@@ -1,4 +1,5 @@
 import dagre from 'dagre';
+import {globalData} from '../utils/global';
 
 /**
  * @param {Audion.GraphContext} graphContext
@@ -9,6 +10,7 @@ export function serializeGraphContext(graphContext) {
     return {
       ...graphContext,
       graph: dagre.graphlib.json.write(graphContext.graph),
+      isIframe: globalData.audioIframeIdMap.has(graphContext.id),
     };
   }
   return graphContext;

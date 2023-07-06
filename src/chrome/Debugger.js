@@ -1,22 +1,24 @@
 /// <reference path="Types.js" />
 
 /**
- * [Chrome extension api][1] to the [Chrome Debugger Protocol][2]. Used by this
- * extension to access the [Web Audio domain][3].
+ * [Chrome extension api][1] to the [Chrome Debugger Protocol][2].
+ * Used by this extension to access the [Web Audio domain][3].
  *
- * [1]: https://developer.chrome.com/docs/extensions/reference/debugger/
- * [2]: https://chromedevtools.github.io/devtools-protocol/
- * [3]: ChromeDebuggerWebAudioDomain.html
+ * [1]:
+ * https://developer.chrome.com/docs/extensions/reference/debugger/
+ * [2]: https://chromedevtools.github.io/devtools-protocol/ [3]:
+ * ChromeDebuggerWebAudioDomain.html
  *
  * @typedef Chrome.Debugger
- * @property {function(
- *   Chrome.DebuggerDebuggee, string, function(): void
- * ): void} attach
- * @property {function(Chrome.DebuggerDebuggee, function(): void): void} detach
+ * @property {function( Chrome.DebuggerDebuggee, string, function():
+ * void ): void} attach
+ * @property {function(Chrome.DebuggerDebuggee, (function():
+ * void|undefined)=): void} detach
  * @property {Chrome.Event<function(object, string): void>} onDetach
  * @property {Chrome.Event<Chrome.DebuggerOnEventListener>} onEvent
  * @property {Chrome.DebuggerSendCommand} sendCommand
- * @see https://developer.chrome.com/docs/extensions/reference/debugger/
+ * @see
+ * https://developer.chrome.com/docs/extensions/reference/debugger/
  * @see https://chromedevtools.github.io/devtools-protocol/
  */
 
@@ -37,7 +39,8 @@
  * @property {string} [extensionId]
  * @property {string} [tabId]
  * @property {string} [targetId]
- * @see https://developer.chrome.com/docs/extensions/reference/debugger/#type-Debuggee
+ * @see
+ * https://developer.chrome.com/docs/extensions/reference/debugger/#type-Debuggee
  */
 
 /**

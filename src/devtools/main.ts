@@ -1,99 +1,65 @@
-import {merge} from 'rxjs';
-import {
-  map,
-  scan,
-  take,
-  shareReplay,
-  share,
-  mergeMap,
-  auditTime,
-} from 'rxjs/operators';
+import {runDevTool} from './devTool';
+import {chrome} from '../chrome';
+import {globalData} from '../utils/global';
 
-import {Audion} from './Types';
+/** Chrome tab to attach the debugger to. */
+let {tabId} = chrome.devtools.inspectedWindow;
+attachTo({tabId});
 
-import {DebuggerAttachEventController} from './DebuggerAttachEventController';
-import {DevtoolsGraphPanel} from './DevtoolsGraphPanel';
-import {serializeGraphContext} from './serializeGraphContext';
-import {integrateWebAudioGraph} from './WebAudioGraphIntegrator';
-import {WebAudioRealtimeData} from './WebAudioRealtimeData';
-import {partitionMap} from './partitionMap';
-import {DebuggerEventsObservable} from './DebuggerEvents';
-
-const attachController = new DebuggerAttachEventController();
-
-const pageEvent$ = new DebuggerEventsObservable(attachController, {
-  domain: 'page',
-});
-const webAudioEvents$ = new DebuggerEventsObservable(attachController, {
-  domain: 'webAudio',
-});
-const webAudioRealtimeData = new WebAudioRealtimeData();
-
-const serializedGraphContext$ = merge(
-  pageEvent$,
-  webAudioEvents$,
-  attachController.debuggerEvent$,
-).pipe(
-  integrateWebAudioGraph(webAudioRealtimeData),
-  // Split graph contexts into an observable for each unique graph context id.
-  partitionMap({
-    getPartitionId: ({id}) => id,
-    isPartitionComplete: ({context}) => context === null,
-  }),
-  // For each partition, start a timer on the first value in that partition but
-  // emit the last value during that timer when the timer completes.
-  map(auditTime(16)),
-  // Merge all the partitions together.
-  mergeMap((source) => source),
-  map(serializeGraphContext),
-  share(),
-);
-
-const allGraphs$ = merge(serializedGraphContext$).pipe(
-  // Persistently observe web audio events and integrate events into context
-  // objects. Collect those into an object of all current graphs.
-  scan<Audion.GraphContext, {[key: string]: Audion.GraphContext}>(
-    (allGraphs, graphContext) => {
-      if (graphContext.graph) {
-        return {...allGraphs, [graphContext.id]: graphContext};
-      }
-      const {[graphContext.id]: _, ...otherGraphs} = allGraphs;
-      return otherGraphs;
-    },
-    {},
-  ),
-  shareReplay(),
-);
-
-// There must be at least one subscription to keep allGraphs$ up to date if
-// panel is connected or otherwise.
-allGraphs$.subscribe();
-
-// When the panel is opened it'll connect to the devtools page, immediately send
-// the current set of graphs.
-const panel = new DevtoolsGraphPanel(
-  merge(
-    allGraphs$.pipe(
-      map((allGraphs) => ({allGraphs})),
-      take(1),
-    ),
-    serializedGraphContext$.pipe(map((graphContext) => ({graphContext}))),
-  ),
-);
-
-// When the panel is first shown, grant attachController permission to attach to
-// the debugger.
-panel.onPanelShown$.pipe(take(1)).subscribe({
-  next() {
-    attachController.permission$.grantTemporary();
-  },
-});
-
-// Respond to requests from the panel accordingly.
-panel.requests$.subscribe({
-  next(value) {
-    if (value.type === Audion.DevtoolsRequestType.COLLECT_GARBAGE) {
-      attachController.sendCommand('HeapProfiler.collectGarbage').subscribe();
+chrome.debugger.onEvent.addListener(async (source, method, params) => {
+  // When something we're already connected to connects to something
+  // else, copy it and connect from the extension too
+  if (method === 'Target.attachedToTarget') {
+    const iframeId = params.targetInfo.targetId;
+    if (!globalData.iframeTabIdMap.has(iframeId) && source.tabId) {
+      globalData.iframeTabIdMap.set(iframeId, source.tabId);
+      runDevTool({targetId: iframeId});
+      // attachTo({targetId: iframeId});
     }
-  },
+  } else if (method === 'WebAudio.contextCreated') {
+    if (
+      !globalData.audioIframeIdMap.has(params.context.contextId) &&
+      source.targetId
+    ) {
+      console.log('This is web targetid');
+      console.log(source.targetId);
+      globalData.audioIframeIdMap.set(
+        params.context.contextId,
+        source.targetId,
+      );
+      // detachFrom({targetId: source.targetId});
+      // runDevTool({targetId: source.targetId});
+    } else {
+      if (source.tabId && !globalData.checkedTabIdMap.has(source.tabId)) {
+        detachFrom({tabId: source.tabId});
+        globalData.checkedTabIdMap.add(source.tabId);
+        console.log('Tab id is attached');
+        console.log(globalData.checkedTabIdMap);
+        runDevTool({tabId: source.tabId});
+      }
+    }
+  } else {
+    console.log('Other event');
+    console.log(method);
+  }
 });
+
+function attachTo(target: Chrome.DebuggerDebuggee) {
+  // Attach to the target we already know about
+  chrome.debugger.attach(target, '1.3', async () => {
+    // Tell CDP to connect to anything else it finds nested (e.g
+    // iframes)
+    await chrome.debugger.sendCommand(target, 'Target.setAutoAttach', {
+      autoAttach: true,
+      waitForDebuggerOnStart: false,
+    });
+
+    // Enable WebAudio events
+    await chrome.debugger.sendCommand(target, 'WebAudio.enable', {});
+  });
+}
+
+async function detachFrom(target: Chrome.DebuggerDebuggee) {
+  await chrome.debugger.sendCommand(target, 'WebAudio.disable', {});
+  await chrome.debugger.detach(target);
+}
