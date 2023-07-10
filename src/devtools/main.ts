@@ -22,22 +22,16 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
         source.targetId,
       );
     }
-    console.log('audio -> iframe data is recorded');
+    console.debug('audio -> iframe data is recorded');
   } else {
-    console.log('Other event');
-    console.log(method);
+    console.debug('Other event');
+    console.debug(method);
   }
 });
 
 function attachTo(params) {
   // Attach to the target we already know about
   chrome.debugger.attach(params, '1.3', async () => {
-    // Tell CDP to connect to anything else it finds nested (e.g iframes)
-    await chrome.debugger.sendCommand(params, 'Target.setAutoAttach', {
-      autoAttach: true,
-      waitForDebuggerOnStart: false,
-    });
-
     // Enable WebAudio events
     await chrome.debugger.sendCommand(params, 'WebAudio.enable', {});
   });

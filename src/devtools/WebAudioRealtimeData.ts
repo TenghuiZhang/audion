@@ -47,34 +47,45 @@ export class WebAudioRealtimeData {
   private readonly interval$ = interval(this.intervalMS);
 
   pollContext(contextId: string) {
-    console.log('this is global data');
-    console.log(globalData);
-    console.log('this is contextId');
-    console.log(contextId);
-    var currentDebugeeId = {};
-    currentDebugeeId = {tabId: id};
+    console.debug('this is global data');
+    console.debug(globalData);
+    console.debug('this is contextId');
+    console.debug(contextId);
+    let currentDebuggerId = {};
+    currentDebuggerId = {tabId: id};
     if (globalData.audioIframeIdMap.has(contextId)) {
-      var iframeId = globalData.audioIframeIdMap.get(contextId);
+      let iframeId = globalData.audioIframeIdMap.get(contextId);
       if (globalData.iframeTabIdMap.has(iframeId)) {
         let targetTabId = {tabId: globalData.iframeTabIdMap.get(iframeId)};
-        console.log('they are tab from global');
-        console.log(targetTabId);
-        console.log('Tab from inspect');
-        console.log(currentDebugeeId);
-        if (JSON.stringify(targetTabId) === JSON.stringify(currentDebugeeId)) {
-          console.log('they are equal');
-          // currentDebugeeId = { targetId: iframeId };
-          currentDebugeeId = targetTabId;
+        console.debug('they are tab from global');
+        console.debug(targetTabId);
+        console.debug('Tab from inspect');
+        console.debug(currentDebuggerId);
+        if (JSON.stringify(targetTabId) === JSON.stringify(currentDebuggerId)) {
+          console.debug('they are equal');
+          currentDebuggerId = {targetId: iframeId};
         }
       }
     }
-    console.log('This is current debugee id');
-    console.log(currentDebugeeId);
+    console.debug('This is current debugee id');
+    console.debug(currentDebuggerId);
+
+    setTimeout(() => {
+      const result = chrome.debugger.sendCommand(
+        currentDebuggerId,
+        'WebAudio.getRealtimeData',
+        {contextId: contextId},
+      );
+      console.log('own function');
+      result.then((x) => {
+        console.log(x);
+      });
+    }, 1000);
 
     return this.interval$.pipe(
       concatMap(() =>
-        sendCommand(currentDebugeeId, WebAudioDebuggerMethod.getRealtimeData, {
-          contextId,
+        sendCommand(currentDebuggerId, WebAudioDebuggerMethod.getRealtimeData, {
+          contextId: contextId,
         }).pipe(
           timeout({first: this.timeoutMS}),
           map((result) => {
@@ -83,6 +94,8 @@ export class WebAudioRealtimeData {
               'ContextRealtimeData not returned for WebAudio context %0.',
               contextId,
             );
+            console.debug('return value of Real time data');
+            console.debug(result);
             return result.realtimeData;
           }),
         ),

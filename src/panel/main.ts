@@ -37,6 +37,8 @@ const devtoolsObserver$ = connect<
 
 const allGraphsObserver$ = devtoolsObserver$.pipe(
   scan((allGraphs, message) => {
+    console.debug('message');
+    console.debug(message);
     if ('allGraphs' in message) {
       return message.allGraphs;
     } else if ('graphContext' in message) {
