@@ -286,7 +286,7 @@ function activateEventWhileAttached(
         state.attachState === BinaryTransition.IS_ACTIVE &&
         interestExists(state)
       ) {
-        // Start receiving events. The attachemnt is active and some entities
+        // Start receiving events. The attachment is active and some entities
         // are listening for events.
         eventState.activate();
       } else {
