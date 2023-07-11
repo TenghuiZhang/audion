@@ -70,18 +70,6 @@ export class WebAudioRealtimeData {
     console.debug('This is current debugee id');
     console.debug(currentDebuggerId);
 
-    setTimeout(() => {
-      const result = chrome.debugger.sendCommand(
-        currentDebuggerId,
-        'WebAudio.getRealtimeData',
-        {contextId: contextId},
-      );
-      console.log('own function');
-      result.then((x) => {
-        console.log(x);
-      });
-    }, 1000);
-
     return this.interval$.pipe(
       concatMap(() =>
         sendCommand(currentDebuggerId, WebAudioDebuggerMethod.getRealtimeData, {
