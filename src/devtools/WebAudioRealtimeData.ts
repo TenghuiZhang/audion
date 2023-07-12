@@ -19,7 +19,7 @@ export enum RealtimeDataErrorMessage {
   /** Error returned when a AudioContext cannot be find. */
   CANNOT_FIND = 'Cannot find BaseAudioContext with such id.',
   /** Error returned when realtime data is requested from an OfflineAudioContext. */
-  REALTIME_ONLY = 'ContextRealtimeData is only avaliable for an AudioContext.',
+  REALTIME_ONLY = 'ContextRealtimeData is only available for an AudioContext.',
 }
 
 interface RealtimeDataReason<Message extends RealtimeDataErrorMessage> {

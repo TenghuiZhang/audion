@@ -13,6 +13,7 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
     const iframeId = params.targetInfo.targetId;
     if (!globalData.iframeTabIdMap.has(iframeId)) {
       globalData.iframeTabIdMap.set(iframeId, source.tabId);
+      console.debug('attach to ' + iframeId);
       attachTo({targetId: iframeId});
     }
   } else if (method === 'WebAudio.contextCreated') {
@@ -23,6 +24,14 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
       );
     }
     console.debug('audio -> iframe data is recorded');
+  } else if (method === 'Page.frameDetached') {
+    console.log('page.frameDetached');
+    console.log(source);
+    console.log(params);
+  } else if (method === 'Page.frameAttached') {
+    console.log('Page.frameAttached');
+    console.log(source);
+    console.log(params);
   } else {
     console.debug('Other event');
     console.debug(method);
@@ -34,5 +43,6 @@ function attachTo(params) {
   chrome.debugger.attach(params, '1.3', async () => {
     // Enable WebAudio events
     await chrome.debugger.sendCommand(params, 'WebAudio.enable', {});
+    await chrome.debugger.sendCommand(params, 'Page.enable', {});
   });
 }

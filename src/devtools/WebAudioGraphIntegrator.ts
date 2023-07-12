@@ -25,6 +25,8 @@ import {
 } from 'rxjs/operators';
 
 import {WebAudioDebuggerEvent} from '../chrome/DebuggerWebAudioDomain';
+import {chrome} from '../chrome';
+import {globalData} from '../utils/global';
 
 import {Audion} from './Types';
 import {
@@ -273,6 +275,8 @@ const EVENT_HANDLERS: Partial<EventHandlers> = {
 
     const realtimeDataGraphContext$ = realtimeData$.pipe(
       map((realtimeData) => {
+        console.log('Check the realtimeData');
+        console.log(realtimeData);
         const space = contexts[contextId];
         if (space) {
           space.graphContext = {
@@ -285,6 +289,8 @@ const EVENT_HANDLERS: Partial<EventHandlers> = {
       filter((context): context is Audion.GraphContext => Boolean(context)),
       catchError((reason, caught) => {
         reason = WebAudioRealtimeDataReason.parseReason(reason);
+        console.log('error catch');
+        console.log(reason);
 
         if (WebAudioRealtimeDataReason.isCannotFindReason(reason)) {
           const space = contexts[contextId];
@@ -592,6 +598,30 @@ Context was likely cleaned up during request for realtime data.
         .map((contextId) => contextId.slice(-6))
         .join(', ')}) exist after load event.`,
     );
+
+    return ensureContextsExist(contexts, helpers);
+  },
+
+  [PageDebuggerEvent.frameAttached]: (helpers, contexts) => {
+    console.debug(
+      `New contextID (${Object.keys(contexts)
+        .map((contextId) => contextId.slice(-6))
+        .join(', ')}) is attached.`,
+    );
+    console.log(helpers);
+    console.log(contexts);
+
+    return ensureContextsExist(contexts, helpers);
+  },
+
+  [PageDebuggerEvent.frameDetached]: (helpers, contexts) => {
+    console.debug(
+      `Old contextID (${Object.keys(contexts)
+        .map((contextId) => contextId.slice(-6))
+        .join(', ')}) is detached.`,
+    );
+    console.log(helpers);
+    console.log(contexts);
 
     return ensureContextsExist(contexts, helpers);
   },

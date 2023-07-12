@@ -42,6 +42,8 @@ export class DevtoolsGraphPanel {
 
         graphs$.pipe(takeUntil(fromChromeEvent(port.onDisconnect))).subscribe({
           next(graphs) {
+            console.log('panel all graph');
+            console.log(graphs);
             port.postMessage(graphs);
           },
         });

@@ -38,6 +38,7 @@ export function runDevTool(targetId: Chrome.DebuggerDebuggee) {
   });
 
   const webAudioRealtimeData = new WebAudioRealtimeData();
+
   const serializedGraphContext$ = merge(
     pageEvent$,
     webAudioEvents$,
@@ -65,9 +66,15 @@ export function runDevTool(targetId: Chrome.DebuggerDebuggee) {
     scan<Audion.GraphContext, {[key: string]: Audion.GraphContext}>(
       (allGraphs, graphContext) => {
         if (graphContext.graph) {
+          console.log('graphContext');
+          console.log(graphContext);
           return {...allGraphs, [graphContext.id]: graphContext};
         }
+        console.log('allGraphs');
+        console.log(allGraphs);
         const {[graphContext.id]: _, ...otherGraphs} = allGraphs;
+        console.log('otherGraphs');
+        console.log(otherGraphs);
         return otherGraphs;
       },
       {},
