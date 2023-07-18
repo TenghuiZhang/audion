@@ -1,3 +1,5 @@
+import {chrome} from '../chrome';
+
 /**
  * An error caused by a falsifiable assumption shown to be false.
  * @memberof Utils
@@ -39,4 +41,23 @@ export function invariant(test, message, ...args) {
   if (!test) {
     throw new InvariantError(message, args);
   }
+}
+
+/**
+ * Send console logging info to logInfo page
+ * @param {string | object} message Error info
+ */
+export function debugLog(message) {
+  console.log(message);
+  chrome.runtime.sendMessage(
+    {log: JSON.stringify(message)},
+    function (response) {
+      if (chrome.runtime.lastError) {
+        // Please ignore this error if you haven't open the debugger log
+        // inspect window in "Detail -> Extension options"
+      } else {
+        console.log(response);
+      }
+    },
+  );
 }

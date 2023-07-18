@@ -24,6 +24,7 @@ import {
 import {chrome} from '../chrome';
 import {PageDebuggerMethod} from '../chrome/DebuggerPageDomain';
 import {WebAudioDebuggerMethod} from '../chrome/DebuggerWebAudioDomain';
+import {debugLog} from '../utils/error';
 
 /**
  * Permission value in regards to calling `chrome.debugger.attach`.
@@ -93,6 +94,7 @@ const debuggerVersion = '1.3';
 
 /** Chrome tab to attach the debugger to. */
 const {tabId} = chrome.devtools.inspectedWindow;
+debugLog({tabId});
 
 export enum ChromeDebuggerAPIEventName {
   detached = 'ChromeDebuggerAPI.detached',
