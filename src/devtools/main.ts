@@ -11,10 +11,9 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
   // copy it and connect from the extension too
   if (method === 'Target.attachedToTarget') {
     const iframeId = params.targetInfo.targetId;
-    if (!globalData.iframeTabIdMap.has(iframeId)) {
+    if (!globalData.iframeTabIdMap.has(iframeId) && source.tabId) {
       globalData.iframeTabIdMap.set(iframeId, source.tabId);
-      console.debug('attach to ' + iframeId);
-      attachTo({targetId: iframeId});
+      console.log('attach to ' + iframeId);
     }
   } else if (method === 'WebAudio.contextCreated') {
     if (source.targetId) {
@@ -22,27 +21,10 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
         params.context.contextId,
         source.targetId,
       );
+      console.log('audio -> iframe data is recorded');
     }
-    console.debug('audio -> iframe data is recorded');
-  } else if (method === 'Page.frameDetached') {
-    console.log('page.frameDetached');
-    console.log(source);
-    console.log(params);
-  } else if (method === 'Page.frameAttached') {
-    console.log('Page.frameAttached');
-    console.log(source);
-    console.log(params);
   } else {
     console.debug('Other event');
     console.debug(method);
   }
 });
-
-function attachTo(params) {
-  // Attach to the target we already know about
-  chrome.debugger.attach(params, '1.3', async () => {
-    // Enable WebAudio events
-    await chrome.debugger.sendCommand(params, 'WebAudio.enable', {});
-    await chrome.debugger.sendCommand(params, 'Page.enable', {});
-  });
-}

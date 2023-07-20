@@ -43,6 +43,7 @@ import {
   PageDebuggerEvent,
   PageDebuggerEventParams,
 } from '../chrome/DebuggerPageDomain';
+import {TargetDebuggerEvent} from '../chrome/DebuggerTargetDomain';
 
 enum GraphContextDestroyReasonMessage {
   RECEIVE_WILL_DESTROY_EVENT = 'ReceiveWillDestroyEvent',
@@ -64,11 +65,13 @@ interface EventHelpers {
 type IntegratableEventName =
   | PageDebuggerEvent
   | WebAudioDebuggerEvent
-  | ChromeDebuggerAPIEventName;
+  | ChromeDebuggerAPIEventName
+  | TargetDebuggerEvent;
 
 type IntegratableEvent =
   | Audion.PageEvent
   | Audion.WebAudioEvent
+  | Audion.TargetEvent
   | ChromeDebuggerAPIEvent;
 
 type IntegratableEventMapping = {
@@ -243,6 +246,11 @@ const EVENT_HANDLERS: Partial<EventHandlers> = {
     contexts,
     contextCreated,
   ) => {
+    console.log('hhhh create');
+    console.log(helpers);
+    console.log(contexts);
+    console.log(contextCreated);
+
     const {contextId, contextType} = contextCreated.context;
     if (contexts[contextId]) {
       // Duplicate or out of order context created event.
@@ -341,6 +349,9 @@ Context was likely cleaned up during request for realtime data.
       graphContextDestroyed$,
       realtimeDataGraphContext$,
     };
+
+    console.log('pass catch error');
+    console.log(contexts);
 
     return merge(
       of(contexts[contextId].graphContext),
@@ -588,6 +599,7 @@ Context was likely cleaned up during request for realtime data.
         .map((contextId) => contextId.slice(-6))
         .join(', ')}) exist after frame navigated.`,
     );
+    console.log('hhh frameNavigated');
 
     return ensureContextsExist(contexts, helpers);
   },
@@ -598,11 +610,12 @@ Context was likely cleaned up during request for realtime data.
         .map((contextId) => contextId.slice(-6))
         .join(', ')}) exist after load event.`,
     );
+    console.log('hhh loadEventFired');
 
     return ensureContextsExist(contexts, helpers);
   },
 
-  [PageDebuggerEvent.frameAttached]: (helpers, contexts) => {
+  [PageDebuggerEvent.frameAttached]: (helpers, contexts, attachInfo) => {
     console.debug(
       `New contextID (${Object.keys(contexts)
         .map((contextId) => contextId.slice(-6))
@@ -610,18 +623,25 @@ Context was likely cleaned up during request for realtime data.
     );
     console.log(helpers);
     console.log(contexts);
+    console.log(attachInfo);
+
+    console.log('hhh frameAttached');
 
     return ensureContextsExist(contexts, helpers);
   },
 
-  [PageDebuggerEvent.frameDetached]: (helpers, contexts) => {
+  [PageDebuggerEvent.frameDetached]: (helpers, contexts, detachInfo) => {
     console.debug(
       `Old contextID (${Object.keys(contexts)
         .map((contextId) => contextId.slice(-6))
         .join(', ')}) is detached.`,
     );
+
     console.log(helpers);
     console.log(contexts);
+    console.log(detachInfo);
+
+    console.log('hhh frameDetached');
 
     return ensureContextsExist(contexts, helpers);
   },
@@ -639,8 +659,18 @@ Context was likely cleaned up during request for realtime data.
             ', ',
           )}) exist after debugger detached because target was closed.`,
       );
+      console.log('hhh detached');
 
       return ensureContextsExist(contexts, helpers);
+    }
+  },
+
+  [TargetDebuggerEvent.attachedToTarget]: (helpers, contexts, AttachInfo) => {
+    if (AttachInfo.targetInfo.type === 'iframe') {
+      const iframeId = AttachInfo.targetInfo.targetId;
+      if (!globalData.iframeTabIdMap.has(iframeId)) {
+        attachTo({targetId: iframeId});
+      }
     }
   },
 };
@@ -713,4 +743,13 @@ export function integrateWebAudioGraph(
       return EMPTY;
     }),
   );
+}
+
+function attachTo(params) {
+  // Attach to the target we already know about
+  chrome.debugger.attach(params, '1.3', async () => {
+    // Enable WebAudio events
+    await chrome.debugger.sendCommand(params, 'WebAudio.enable', {});
+    await chrome.debugger.sendCommand(params, 'Page.enable', {});
+  });
 }
