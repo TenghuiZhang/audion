@@ -94,6 +94,7 @@ const debuggerVersion = '1.3';
 
 /** Chrome tab to attach the debugger to. */
 const {tabId} = chrome.devtools.inspectedWindow;
+debugLog('This is the active tabId');
 debugLog({tabId});
 
 export enum ChromeDebuggerAPIEventName {

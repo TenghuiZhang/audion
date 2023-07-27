@@ -1,5 +1,4 @@
-import {chrome} from '../chrome';
-
+/* eslint-disable */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.log) {
     const logElement = document.getElementById('log');
